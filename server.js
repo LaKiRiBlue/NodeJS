@@ -1,46 +1,56 @@
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-// Function to create a directory and the corresponding file inside it
-function createFileWithContent(filePath, content) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, content);
+// Helper function to read the content of a file
+function readFileContent(filePath, res) {
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) {
+      // If there is an error reading the file, respond with a 500 status code
+      res.writeHead(500);
+      res.end('Error reading file');
+    } else {
+      // Set the Content-Type header based on the file extension
+      const ext = path.extname(filePath);
+      const contentType = {
+        '.html': 'text/html',
+        '.css': 'text/css',
+      }[ext] || 'text/plain';
+
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(data);
+    }
+  });
 }
 
-const rootFolder = path.join(__dirname, 'client');
+const server = http.createServer();
 
-// Create index.html and style.css for the root folder
-createFileWithContent(
-  path.join(rootFolder, 'index.html'),
-  '<!DOCTYPE html><html><head><title>Home</title><link rel="stylesheet" href="style.css"></head><body><h1>Home</h1></body></html>'
-);
-createFileWithContent(path.join(rootFolder, 'style.css'), 'body { background-color: #F0F0F0; }');
-
-// Create subfolders and their respective files
-const subfolders = [
-  { name: 'contact', color: '#FFC0CB' },
-  { name: 'about', color: '#00FFFF' },
-  { name: 'blog', color: '#90EE90' },
-];
-
-subfolders.forEach((folder) => {
-  const folderPath = path.join(rootFolder, folder.name);
-  const indexPath = path.join(folderPath, 'index.html');
-  const stylePath = path.join(folderPath, 'style.css');
-  const pageTitle = folder.name.charAt(0).toUpperCase() + folder.name.slice(1);
-
-  fs.mkdirSync(folderPath, { recursive: true });
-  createFileWithContent(
-    indexPath,
-    `<!DOCTYPE html><html><head><title>${pageTitle}</title><link rel="stylesheet" href="style.css"></head><body><h1>${pageTitle}</h1></body></html>`
-  );
-  createFileWithContent(stylePath, `body { background-color: ${folder.color}; }`);
+server.on('request', (req, res) => {
+  // Use the readFileContent function to serve the HTML files
+  switch (req.url) {
+    case '/':
+      // Serve the root index.html file
+      const rootFilePath = path.join(__dirname, 'client', 'index.html');
+      readFileContent(rootFilePath, res);
+      break;
+    case '/about':
+      // Serve the about index.html file
+      const aboutFilePath = path.join(__dirname, 'client', 'about', 'index.html');
+      readFileContent(aboutFilePath, res);
+      break;
+    case '/blog':
+      // Serve the blog index.html file
+      const blogFilePath = path.join(__dirname, 'client', 'blog', 'index.html');
+      readFileContent(blogFilePath, res);
+      break;
+    default:
+      // If the requested URL path doesn't match any known paths, respond with a 404 status code
+      res.writeHead(404);
+      res.end('Not found');
+      break;
+  }
 });
 
-// Determine the OS and add corresponding info to info.txt
-const osName = process.platform === 'linux' ? 'Ubuntu' : 'Unknown OS';
-const infoFilePath = path.join(rootFolder, 'info.txt');
-const infoText = `This is being run on a ${osName} computer!`;
-createFileWithContent(infoFilePath, infoText);
-
-console.log('Web structure created successfully!');
+server.listen(3000, () => {
+  console.log('Server started on http://127.0.0.1:3000');
+});
